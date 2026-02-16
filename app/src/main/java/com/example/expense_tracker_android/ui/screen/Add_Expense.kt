@@ -1,4 +1,5 @@
-package com.example.expense_tracker_android
+package com.example.expense_tracker_android.ui.screen
+
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -28,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,47 +46,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.expense_tracker_android.model.Expense
 import com.example.expense_tracker_android.ui.theme.Expense_Tracker_AndroidTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
-fun ModifyExpenseScreen(
-    expense: Expense? = null,
+fun AddExpenseScreen(
     modifier: Modifier = Modifier,
-    onSaveClick: (Expense) -> Unit = {},
-    onDeleteClick: () -> Unit = {},
-    onBack: () -> Unit = {} // Added onBack parameter
+    categories: List<String>,
+    onSaveClick: (AddExpenseFormState) -> Unit = {},
+    onCancel: () -> Unit = {},
+    onBack: () -> Unit = {},
+    onCreateCategory: () -> Unit = {}
 ) {
-    val categories = listOf("Food", "Transport", "Shopping", "Bills", "Others")
+    val categoryOptions = categories + "Create a new category..."
     val paymentMethods = listOf("Cash", "Card", "UPI", "Other")
 
     val context = LocalContext.current
     val now = remember { Calendar.getInstance() }
 
-    var amount by rememberSaveable { mutableStateOf(expense?.amount?.toString() ?: "") }
-    var category by rememberSaveable { mutableStateOf(expense?.category ?: categories.first()) }
-    var dateMillis by rememberSaveable { mutableStateOf(
-        expense?.date?.let {
-            try {
-                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)?.time ?: now.timeInMillis
-            } catch (e: Exception) { now.timeInMillis }
-        } ?: now.timeInMillis
-    ) }
-    var hour by rememberSaveable { mutableStateOf(
-        expense?.time?.hours ?: now.get(Calendar.HOUR_OF_DAY)
-    ) }
-    var minute by rememberSaveable { mutableStateOf(
-        expense?.time?.minutes ?: now.get(Calendar.MINUTE)
-    ) }
+    var amount by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf(categories.firstOrNull() ?: "") }
+    var dateMillis by rememberSaveable { mutableStateOf(now.timeInMillis) }
+    var hour by rememberSaveable { mutableStateOf(now.get(Calendar.HOUR_OF_DAY)) }
+    var minute by rememberSaveable { mutableStateOf(now.get(Calendar.MINUTE)) }
     var paymentMethod by rememberSaveable { mutableStateOf(paymentMethods.first()) }
-    var note by rememberSaveable { mutableStateOf(expense?.Expense_Name ?: "") }
+    var note by rememberSaveable { mutableStateOf("") }
 
     val date = remember(dateMillis) { formatDate(dateMillis) }
     val time = remember(hour, minute) { formatTime(hour, minute) }
@@ -117,12 +111,12 @@ fun ModifyExpenseScreen(
         ) {
             IconButton(onClick = onBack) { // Hooked up navigation
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Use AutoMirrored version
                     contentDescription = "Back"
                 )
             }
             Text(
-                text = "Modify Expense",
+                text = "Add Expense",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center
@@ -165,7 +159,7 @@ fun ModifyExpenseScreen(
                     )
                 }
 
-                androidx.compose.material3.HorizontalDivider()
+                HorizontalDivider()
 
                 Row(
                     modifier = Modifier
@@ -197,12 +191,17 @@ fun ModifyExpenseScreen(
                             expanded = categoryExpanded,
                             onDismissRequest = { categoryExpanded = false }
                         ) {
-                            categories.forEach { item ->
+                            categoryOptions.forEach { item ->
                                 DropdownMenuItem(
                                     text = { Text(item) },
                                     onClick = {
-                                        category = item
-                                        categoryExpanded = false
+                                        if (item == "Create a new category...") {
+                                            categoryExpanded = false
+                                            onCreateCategory()
+                                        } else {
+                                            category = item
+                                            categoryExpanded = false
+                                        }
                                     }
                                 )
                             }
@@ -210,7 +209,63 @@ fun ModifyExpenseScreen(
                     }
                 }
 
-                androidx.compose.material3.HorizontalDivider()
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Date & Time",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    AssistChip(
+                        onClick = {
+                            val calendar = Calendar.getInstance().apply { timeInMillis = dateMillis }
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    val selected = Calendar.getInstance().apply {
+                                        set(year, month, day, hour, minute)
+                                    }
+                                    dateMillis = selected.timeInMillis
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        },
+                        label = { Text(date) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    AssistChip(
+                        onClick = {
+                            TimePickerDialog(
+                                context,
+                                { _, selectedHour, selectedMinute ->
+                                    hour = selectedHour
+                                    minute = selectedMinute
+                                },
+                                hour,
+                                minute,
+                                false
+                            ).show()
+                        },
+                        label = { Text(time) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+
+                HorizontalDivider()
 
                 Row(
                     modifier = Modifier
@@ -255,7 +310,7 @@ fun ModifyExpenseScreen(
                     }
                 }
 
-                androidx.compose.material3.HorizontalDivider()
+                HorizontalDivider()
 
                 Row(
                     modifier = Modifier
@@ -289,32 +344,24 @@ fun ModifyExpenseScreen(
 
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
-                onClick = onDeleteClick,
+                onClick = onCancel,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Delete")
+                Text("Cancel")
             }
             Spacer(modifier = Modifier.width(12.dp))
             Button(
                 onClick = {
-                    val cal = Calendar.getInstance().apply {
-                        timeInMillis = dateMillis
-                        set(Calendar.HOUR_OF_DAY, hour)
-                        set(Calendar.MINUTE, minute)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                    val sqlDateString = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
-                    val sqlTime = java.sql.Time(cal.timeInMillis)
                     onSaveClick(
-                        Expense(
-                            uid = expense?.uid ?: (System.currentTimeMillis() % Int.MAX_VALUE).toInt(),
-                            Expense_Name = note.ifBlank { amount + " " + category },
-                            amount = amount.toDoubleOrNull() ?: 0.0,
-                            date = sqlDateString,
-                            time = sqlTime,
-                            category = category
+                        AddExpenseFormState(
+                            amount = amount,
+                            category = category,
+                            dateMillis = dateMillis,
+                            hour = hour,
+                            minute = minute,
+                            paymentMethod = paymentMethod,
+                            note = note
                         )
                     )
                 },
@@ -329,11 +376,21 @@ fun ModifyExpenseScreen(
     }
 }
 
+data class AddExpenseFormState(
+    val amount: String,
+    val category: String,
+    val dateMillis: Long,
+    val hour: Int,
+    val minute: Int,
+    val paymentMethod: String,
+    val note: String
+)
+
 @Preview(showBackground = true)
 @Composable
-fun ModifyExpensePreview() {
+fun AddExpensePreview() {
     Expense_Tracker_AndroidTheme {
-        ModifyExpenseScreen()
+        AddExpenseScreen(categories = listOf("Food", "Transport", "Shopping"))
     }
 }
 

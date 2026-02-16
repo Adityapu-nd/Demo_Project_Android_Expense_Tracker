@@ -1,4 +1,4 @@
-package com.example.expense_tracker_android
+package com.example.expense_tracker_android.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.expense_tracker_android.model.Expense
+import java.sql.Time
 
 @Composable
 fun AllExpensesScreen(
@@ -134,11 +136,11 @@ fun AllExpensesScreen(
                     Column(horizontalAlignment = Alignment.End) {
                         Text("₹%.2f".format(expense.amount ?: 0.0), fontWeight = FontWeight.Bold, color = Color(0xFF2B5DF5))
                         Text(
-                            expense.date?.let {
+                            expense.date?.let { dateStr ->
                                 try {
-                                    val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)
+                                    val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateStr)
                                     if (parsed != null) SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(parsed) else "-"
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
                                     "-"
                                 }
                             } ?: "-",
@@ -159,17 +161,17 @@ fun AllExpensesScreen(
                             Text(
                                 buildString {
                                     append(
-                                        expense.date?.let {
+                                        expense.date?.let { dateStr ->
                                             try {
-                                                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)
+                                                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateStr)
                                                 if (parsed != null) SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(parsed) else "-"
-                                            } catch (e: Exception) { "-" }
+                                            } catch (_: Exception) { "-" }
                                         } ?: "-"
                                     )
                                     append("  ")
                                     append(
-                                        expense.time?.let {
-                                            SimpleDateFormat("h:mm a", Locale.getDefault()).format(it)
+                                        expense.time?.let { timeVal ->
+                                            SimpleDateFormat("h:mm a", Locale.getDefault()).format(timeVal)
                                         } ?: "-"
                                     )
                                 },
@@ -215,7 +217,7 @@ fun AllExpensesScreenPreview() {
             Expense_Name = "Dinner at restaurant",
             amount = 123.0,
             date = "2026-02-11",
-            time = java.sql.Time(17, 11, 0),
+            time = Time(17, 11, 0),
             category = "Other"
         ),
         Expense(
@@ -223,7 +225,7 @@ fun AllExpensesScreenPreview() {
             Expense_Name = "Bus ticket",
             amount = 123.0,
             date = "2026-02-10",
-            time = java.sql.Time(8, 30, 0),
+            time = Time(8, 30, 0),
             category = "Transport"
         )
     )

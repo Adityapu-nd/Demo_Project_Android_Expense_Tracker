@@ -1,4 +1,4 @@
-package com.example.expense_tracker_android
+package com.example.expense_tracker_android.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.expense_tracker_android.model.Expense
+import com.example.expense_tracker_android.model.ExpenseDao
+import com.example.expense_tracker_android.viewmodel.DashboardViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt

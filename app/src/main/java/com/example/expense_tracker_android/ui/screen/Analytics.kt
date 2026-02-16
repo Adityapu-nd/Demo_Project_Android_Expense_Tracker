@@ -1,4 +1,4 @@
-package com.example.expense_tracker_android
+package com.example.expense_tracker_android.ui.screen
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -17,6 +17,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.expense_tracker_android.model.Category
+import com.example.expense_tracker_android.model.CategoryDao
+import com.example.expense_tracker_android.model.Expense
+import com.example.expense_tracker_android.model.ExpenseDao
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
@@ -339,9 +343,30 @@ fun AnalyticsScreenPreview() {
     // Provide fake/mock DAOs for preview
     val fakeExpenseDao = object : ExpenseDao {
         override fun getAll() = listOf(
-            Expense(uid = 1, Expense_Name = "Other", amount = 123.0, date = "2026-02-11", time = null, category = "Other"),
-            Expense(uid = 2, Expense_Name = "Transport", amount = 456.0, date = "2026-02-10", time = null, category = "Transport"),
-            Expense(uid = 3, Expense_Name = "Food", amount = 789.0, date = "2026-02-09", time = null, category = "Food")
+            Expense(
+                uid = 1,
+                Expense_Name = "Other",
+                amount = 123.0,
+                date = "2026-02-11",
+                time = null,
+                category = "Other"
+            ),
+            Expense(
+                uid = 2,
+                Expense_Name = "Transport",
+                amount = 456.0,
+                date = "2026-02-10",
+                time = null,
+                category = "Transport"
+            ),
+            Expense(
+                uid = 3,
+                Expense_Name = "Food",
+                amount = 789.0,
+                date = "2026-02-09",
+                time = null,
+                category = "Food"
+            )
         )
         override fun loadAllByIds(expenseIds: IntArray) = emptyList<Expense>()
         override fun findByName(expenseName: String) = Expense(0, "", 0.0, null, null, "")

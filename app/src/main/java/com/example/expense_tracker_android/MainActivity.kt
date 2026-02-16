@@ -1,7 +1,6 @@
 package com.example.expense_tracker_android
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,7 +11,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.room.Room
+import com.example.expense_tracker_android.model.Expense
+import com.example.expense_tracker_android.model.Category
+import com.example.expense_tracker_android.model.AppDatabase
+import com.example.expense_tracker_android.ui.screen.DashboardScreen
+import com.example.expense_tracker_android.ui.screen.AddExpenseScreen
+import com.example.expense_tracker_android.ui.screen.AllExpensesScreen
+import com.example.expense_tracker_android.ui.screen.AnalyticsScreen
+import com.example.expense_tracker_android.ui.screen.CreateCategoryScreen
+import com.example.expense_tracker_android.ui.screen.ModifyExpenseScreen
+import com.example.expense_tracker_android.ui.screen.NewUserScreen
+import com.example.expense_tracker_android.ui.screen.NewUserScreen2
 import com.example.expense_tracker_android.ui.theme.Expense_Tracker_AndroidTheme
+import com.example.expense_tracker_android.viewmodel.DashboardViewModel
 import java.sql.Time
 import java.text.SimpleDateFormat
 import java.util.*
@@ -121,7 +132,10 @@ class MainActivity : ComponentActivity() {
                                     set(Calendar.SECOND, 0)
                                     set(Calendar.MILLISECOND, 0)
                                 }
-                                val sqlDateString = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+                                val sqlDateString = SimpleDateFormat(
+                                    "yyyy-MM-dd",
+                                    Locale.getDefault()
+                                ).format(cal.time)
                                 val sqlTime = Time(cal.timeInMillis)
                                 expenseDao.insertAll(
                                     Expense(
@@ -143,7 +157,12 @@ class MainActivity : ComponentActivity() {
                         is Screen.CreateCategory -> CreateCategoryScreen(
                             existingCategories = categories,
                             onSave = { newCategory ->
-                                if (newCategory.isNotBlank() && !categories.any { it.equals(newCategory, ignoreCase = true) }) {
+                                if (newCategory.isNotBlank() && !categories.any {
+                                        it.equals(
+                                            newCategory,
+                                            ignoreCase = true
+                                        )
+                                    }) {
                                     categories.add(newCategory)
                                     // Persist to database
                                     categoryDao.insert(Category(name = newCategory))
@@ -155,12 +174,14 @@ class MainActivity : ComponentActivity() {
                         )
                         is Screen.AllExpenses -> AllExpensesScreen(
                             expenses = expenseDao.getAll(),
-                            onModifyExpense = { expense -> currentScreen = Screen.ModifyExpense(expense) },
+                            onModifyExpense = { expense: com.example.expense_tracker_android.model.Expense ->
+                                currentScreen = Screen.ModifyExpense(expense)
+                            },
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.ModifyExpense -> ModifyExpenseScreen(
                             expense = screen.expense,
-                            onSaveClick = { updatedExpense ->
+                            onSaveClick = { updatedExpense: com.example.expense_tracker_android.model.Expense ->
                                 if (expenseDao.getAll().any { it.uid == updatedExpense.uid }) {
                                     // Update existing
                                     db.expenseDaoExt().updateExpense(updatedExpense)
