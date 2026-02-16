@@ -4,15 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -25,14 +22,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onAllExpenses: () -> Unit, onAnalytics: () -> Unit) {
@@ -48,6 +51,7 @@ fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onA
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .systemBarsPadding() // Add padding for system bars
             .background(Color(0xFFF7F9FB))
             .padding(16.dp)
     ) {
@@ -248,9 +252,13 @@ fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onA
         }
     }
     // Floating Action Button (FAB) for Add Expense
+    var fabOffsetX by remember { mutableStateOf(0f) }
+    var fabOffsetY by remember { mutableStateOf(0f) }
+    val density = LocalDensity.current
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .padding(16.dp),
         contentAlignment = Alignment.BottomEnd
     ) {
@@ -258,7 +266,18 @@ fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onA
             onClick = onAddExpense,
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2B5DF5)),
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier
+                .size(56.dp)
+                .offset { IntOffset(fabOffsetX.roundToInt(), fabOffsetY.roundToInt()) }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDrag = { change, dragAmount ->
+                            change.consumeAllChanges()
+                            fabOffsetX += dragAmount.x
+                            fabOffsetY += dragAmount.y
+                        }
+                    )
+                },
             contentPadding = PaddingValues(0.dp)
         ) {
             Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 32.sp)

@@ -1,5 +1,7 @@
 package com.example.expense_tracker_android
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,8 +29,22 @@ sealed class Screen {
 }
 
 class MainActivity : ComponentActivity() {
+    private fun isFtuxCompleted(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("ftux_prefs", Context.MODE_PRIVATE)
+        return prefs.getBoolean("ftux_completed", false)
+    }
+    private fun setFtuxCompleted(context: Context) {
+        val prefs = context.getSharedPreferences("ftux_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("ftux_completed", true).apply()
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Hide system bars for immersive experience
+        window.decorView.systemUiVisibility = (
+            android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
+            android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+        )
         enableEdgeToEdge()
         setContent {
             Expense_Tracker_AndroidTheme {
@@ -42,33 +58,57 @@ class MainActivity : ComponentActivity() {
                     .allowMainThreadQueries().build() // For demo; use background thread in production
                 }
                 val expenseDao = db.expenseDao()
+                val categoryDao = db.categoryDao()
                 val dashboardViewModel = remember { DashboardViewModel(expenseDao) }
 
                 // --- CATEGORY STATE ---
                 val defaultCategories = listOf("Food", "Transport", "Shopping", "Bills", "Others")
-                val categories = remember { mutableStateListOf<String>().apply { addAll(defaultCategories) } }
 
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.NewUser) }
+                // Load categories from database or initialize with defaults
+                val categories = remember {
+                    val savedCategories = categoryDao.getAllCategoryNames()
+                    if (savedCategories.isEmpty()) {
+                        // Initialize database with default categories
+                        defaultCategories.forEach { catName ->
+                            categoryDao.insert(Category(name = catName))
+                        }
+                        mutableStateListOf<String>().apply { addAll(defaultCategories) }
+                    } else {
+                        mutableStateListOf<String>().apply { addAll(savedCategories) }
+                    }
+                }
+
+                var currentScreen by remember {
+                    mutableStateOf<Screen>(
+                        if (isFtuxCompleted(applicationContext)) Screen.Dashboard else Screen.NewUser
+                    )
+                }
                 // Add new Screen.NewUser and Screen.NewUser2
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     when (val screen = currentScreen) {
                         is Screen.NewUser -> NewUserScreen(
                             onGetStarted = { currentScreen = Screen.NewUser2 },
-                            onSkip = { currentScreen = Screen.Dashboard }
-                        )
-                        is Screen.NewUser2 -> NewUserScreen2(
-                            onContinue = {
-                                // Navigate to Dashboard and prevent back navigation
+                            onSkip = {
+                                setFtuxCompleted(applicationContext)
                                 currentScreen = Screen.Dashboard
                             }
                         )
-                        is Screen.Dashboard -> DashboardScreen(
-                            viewModel = dashboardViewModel,
-                            onAddExpense = { currentScreen = Screen.AddExpense },
-                            onAllExpenses = { currentScreen = Screen.AllExpenses },
-                            onAnalytics = { currentScreen = Screen.Analytics }
+                        is Screen.NewUser2 -> NewUserScreen2(
+                            onContinue = {
+                                setFtuxCompleted(applicationContext)
+                                currentScreen = Screen.Dashboard
+                            }
                         )
+                        is Screen.Dashboard -> {
+                            setFtuxCompleted(applicationContext)
+                            DashboardScreen(
+                                viewModel = dashboardViewModel,
+                                onAddExpense = { currentScreen = Screen.AddExpense },
+                                onAllExpenses = { currentScreen = Screen.AllExpenses },
+                                onAnalytics = { currentScreen = Screen.Analytics }
+                            )
+                        }
                         is Screen.AddExpense -> AddExpenseScreen(
                             modifier = Modifier.padding(innerPadding),
                             categories = categories,
@@ -105,6 +145,8 @@ class MainActivity : ComponentActivity() {
                             onSave = { newCategory ->
                                 if (newCategory.isNotBlank() && !categories.any { it.equals(newCategory, ignoreCase = true) }) {
                                     categories.add(newCategory)
+                                    // Persist to database
+                                    categoryDao.insert(Category(name = newCategory))
                                 }
                                 currentScreen = Screen.AddExpense
                             },
@@ -137,8 +179,8 @@ class MainActivity : ComponentActivity() {
                             onBack = { currentScreen = Screen.AllExpenses }
                         )
                         is Screen.Analytics -> AnalyticsScreen(
-                            expenses = expenseDao.getAll(),
-                            categories = categories,
+                            expenseDao = expenseDao,
+                            categoryDao = categoryDao,
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                     }

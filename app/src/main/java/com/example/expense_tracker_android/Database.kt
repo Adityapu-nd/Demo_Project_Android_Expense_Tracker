@@ -13,6 +13,13 @@ data class Expense(
     @ColumnInfo(name = "Category") val category: String?
 )
 
+@Entity
+data class Category(
+    @PrimaryKey val name: String,
+    @ColumnInfo(name = "icon") val icon: String = "💰",
+    @ColumnInfo(name = "color") val color: Long = 0xFFFFF59D // Default color in ARGB format
+)
+
 
 
 @Dao
@@ -39,9 +46,28 @@ interface ExpenseDao {
     fun getDailyExpense(date: String): Double
 }
 
-@Database(entities = [Expense::class], version = 2)
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM Category ORDER BY name ASC")
+    fun getAll(): List<Category>
+
+    @Query("SELECT name FROM Category ORDER BY name ASC")
+    fun getAllCategoryNames(): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insert(category: Category)
+
+    @Delete
+    fun delete(category: Category)
+
+    @Query("SELECT * FROM Category WHERE name = :name LIMIT 1")
+    fun getByName(name: String): Category?
+}
+
+@Database(entities = [Expense::class, Category::class], version = 3)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun expenseDaoExt(): ExpenseDaoExt // Added for update support
+    abstract fun categoryDao(): CategoryDao
 }
