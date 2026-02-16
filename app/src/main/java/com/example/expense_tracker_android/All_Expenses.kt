@@ -7,13 +7,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +33,31 @@ fun AllExpensesScreen(
     onBack: () -> Unit
 ) {
     var expandedUid by remember { mutableStateOf<Int?>(null) }
-    // Remove any parent Column/Scroll, use LazyColumn as the root
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    var sortOption by remember { mutableStateOf("Date: Newest First") }
+
+    val sortOptions = listOf(
+        "Price: Low to High",
+        "Price: High to Low",
+        "Date: Newest First",
+        "Date: Oldest First",
+        "Category: A-Z",
+        "Category: Z-A"
+    )
+
+    // Sort expenses based on selected option
+    val sortedExpenses = remember(expenses, sortOption) {
+        when (sortOption) {
+            "Price: Low to High" -> expenses.sortedBy { it.amount ?: 0.0 }
+            "Price: High to Low" -> expenses.sortedByDescending { it.amount ?: 0.0 }
+            "Date: Newest First" -> expenses.sortedWith(compareByDescending<Expense> { it.date ?: "" }.thenByDescending { it.time?.time ?: 0L })
+            "Date: Oldest First" -> expenses.sortedWith(compareBy<Expense> { it.date ?: "" }.thenBy { it.time?.time ?: 0L })
+            "Category: A-Z" -> expenses.sortedBy { (it.category ?: "").lowercase(Locale.getDefault()) }
+            "Category: Z-A" -> expenses.sortedByDescending { (it.category ?: "").lowercase(Locale.getDefault()) }
+            else -> expenses.sortedWith(compareByDescending<Expense> { it.date ?: "" }.thenByDescending { it.time?.time ?: 0L })
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .background(Color(0xFFF7F9FB))
@@ -53,15 +76,34 @@ fun AllExpensesScreen(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text("All Expenses", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2B5DF5))
+                Spacer(Modifier.weight(1f))
+                Box {
+                    Button(
+                        onClick = { sortMenuExpanded = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2B5DF5)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Sort", color = Color.White)
+                    }
+                    DropdownMenu(
+                        expanded = sortMenuExpanded,
+                        onDismissRequest = { sortMenuExpanded = false }
+                    ) {
+                        sortOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    sortOption = option
+                                    sortMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
         }
-        // Sort expenses by date and time descending (recent first)
-        val sortedExpenses = expenses.sortedWith(compareByDescending<Expense> {
-            it.date ?: ""
-        }.thenByDescending {
-            it.time?.time ?: 0L
-        })
         // Expense items
         items(sortedExpenses) { expense ->
             val isExpanded = expandedUid == expense.uid
@@ -83,7 +125,6 @@ fun AllExpensesScreen(
                         Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFF7F9FB)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, tint = Color(0xFFB0B8C1))
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
