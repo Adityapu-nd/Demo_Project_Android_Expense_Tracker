@@ -11,6 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.room.Room
+import android.view.WindowInsetsController
 import com.example.expense_tracker_android.model.Expense
 import com.example.expense_tracker_android.model.Category
 import com.example.expense_tracker_android.model.AppDatabase
@@ -52,10 +53,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Hide system bars for immersive experience
         window.decorView.systemUiVisibility = (
-            android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-            android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
-            android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-        )
+                android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                        android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
+                        android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                )
         enableEdgeToEdge()
         setContent {
             Expense_Tracker_AndroidTheme {
@@ -66,7 +67,7 @@ class MainActivity : ComponentActivity() {
                         AppDatabase::class.java,
                         "expense-db"
                     ).fallbackToDestructiveMigration()
-                    .allowMainThreadQueries().build() // For demo; use background thread in production
+                        .allowMainThreadQueries().build() // For demo; use background thread in production
                 }
                 val expenseDao = db.expenseDao()
                 val categoryDao = db.categoryDao()
