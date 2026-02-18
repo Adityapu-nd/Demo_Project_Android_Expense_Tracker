@@ -35,8 +35,6 @@ A modern Android expense tracking application built with MVVM architecture, Jetp
 - Unit tests in `app/src/test/java/`
 - Instrumented tests in `app/src/androidTest/java/`
 
-## License
-MIT License
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
