@@ -2,6 +2,7 @@ package com.example.expense_tracker_android.model
 
 import androidx.room.*
 import java.sql.Time
+import androidx.room.Query
 
 @Entity
 data class Expense(

@@ -1,5 +1,4 @@
 package com.example.expense_tracker_android
-
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,6 +27,8 @@ import com.example.expense_tracker_android.viewmodel.DashboardViewModel
 import java.sql.Time
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.expense_tracker_android.model.ExchangeRatesApi
+import com.example.expense_tracker_android.apikey.API_KEY
 
 sealed class Screen {
     object NewUser : Screen()
@@ -36,7 +37,7 @@ sealed class Screen {
     object AddExpense : Screen()
     object AllExpenses : Screen()
     object Analytics : Screen()
-    object CreateCategory : Screen() // Added for category creation
+    object CreateCategory : Screen()
     data class ModifyExpense(val expense: Expense) : Screen()
 }
 
@@ -124,6 +125,8 @@ class MainActivity : ComponentActivity() {
                         is Screen.AddExpense -> AddExpenseScreen(
                             modifier = Modifier.padding(innerPadding),
                             categories = categories,
+                            api = ExchangeRatesApi.service,
+                            apiKey = API_KEY,
                             onSaveClick = { form ->
                                 // Use dateMillis, hour, and minute to create Date and Time
                                 val cal = Calendar.getInstance().apply {

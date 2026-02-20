@@ -50,12 +50,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.expense_tracker_android.model.Expense
+import com.example.expense_tracker_android.model.ExchangeRatesService
 import com.example.expense_tracker_android.ui.theme.Expense_Tracker_AndroidTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.compose.material3.CircularProgressIndicator
+import android.util.Log
 
 @Composable
 fun AddExpenseScreen(
@@ -64,10 +69,13 @@ fun AddExpenseScreen(
     onSaveClick: (AddExpenseFormState) -> Unit = {},
     onCancel: () -> Unit = {},
     onBack: () -> Unit = {},
-    onCreateCategory: () -> Unit = {}
+    onCreateCategory: () -> Unit = {},
+    api: ExchangeRatesService, // Pass Retrofit API instance
+    apiKey: String // Pass API key explicitly
 ) {
     val categoryOptions = categories + "Create a new category..."
     val paymentMethods = listOf("Cash", "Card", "UPI", "Other")
+    val currencyOptions = listOf("INR", "USD", "EUR", "GBP", "JPY")
 
     val context = LocalContext.current
     val now = remember { Calendar.getInstance() }
@@ -79,24 +87,29 @@ fun AddExpenseScreen(
     var minute by rememberSaveable { mutableStateOf(now.get(Calendar.MINUTE)) }
     var paymentMethod by rememberSaveable { mutableStateOf(paymentMethods.first()) }
     var note by rememberSaveable { mutableStateOf("") }
+    var currency by rememberSaveable { mutableStateOf(currencyOptions.first()) }
 
     val date = remember(dateMillis) { formatDate(dateMillis) }
     val time = remember(hour, minute) { formatTime(hour, minute) }
 
     var categoryExpanded by rememberSaveable { mutableStateOf(false) }
     var paymentExpanded by rememberSaveable { mutableStateOf(false) }
+    var currencyExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Validation for Save button
     val isAmountValid = try {
         val amt = amount.toDouble()
         val digits = amount.trim().takeWhile { it != '.' }.length
         amount.isNotBlank() && amt > 0 && digits <= 10 && amount.toDoubleOrNull() != null
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         false
     }
     val saveButtonColors = ButtonDefaults.buttonColors(
         containerColor = if (isAmountValid) MaterialTheme.colorScheme.primary else Color.Gray
     )
+
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -315,6 +328,51 @@ fun AddExpenseScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable { currencyExpanded = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Currency",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Box {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = currency,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = currencyExpanded,
+                            onDismissRequest = { currencyExpanded = false }
+                        ) {
+                            currencyOptions.forEach { item ->
+                                DropdownMenuItem(
+                                    text = { Text(item) },
+                                    onClick = {
+                                        currency = item
+                                        currencyExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -353,25 +411,67 @@ fun AddExpenseScreen(
             Spacer(modifier = Modifier.width(12.dp))
             Button(
                 onClick = {
-                    onSaveClick(
-                        AddExpenseFormState(
-                            amount = amount,
-                            category = category,
-                            dateMillis = dateMillis,
-                            hour = hour,
-                            minute = minute,
-                            paymentMethod = paymentMethod,
-                            note = note
+                    errorMessage = null
+                    if (currency == "INR") {
+                        onSaveClick(
+                            AddExpenseFormState(
+                                amount = amount,
+                                category = category,
+                                dateMillis = dateMillis,
+                                hour = hour,
+                                minute = minute,
+                                paymentMethod = paymentMethod,
+                                note = note
+                            )
                         )
-                    )
+                    } else {
+                        isLoading = true
+                        CoroutineScope(Dispatchers.Main).launch {
+                            when (val result = convertToINR(amount, currency, api, apiKey, context)) {
+                                is ConversionResult.Success -> {
+                                    isLoading = false
+                                    onSaveClick(
+                                        AddExpenseFormState(
+                                            amount = result.amount,
+                                            category = category,
+                                            dateMillis = dateMillis,
+                                            hour = hour,
+                                            minute = minute,
+                                            paymentMethod = paymentMethod,
+                                            note = note
+                                        )
+                                    )
+                                }
+                                is ConversionResult.Error -> {
+                                    isLoading = false
+                                    errorMessage = result.message
+                                    Log.e("AddExpense", "Currency conversion error: ${result.message}")
+                                }
+                            }
+                        }
+                    }
                 },
-                enabled = isAmountValid,
+                enabled = isAmountValid && !isLoading,
                 colors = saveButtonColors,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Save")
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text("Save")
+                }
             }
+        }
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage ?: "",
+                color = Color.Red,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 }
@@ -386,14 +486,6 @@ data class AddExpenseFormState(
     val note: String
 )
 
-@Preview(showBackground = true)
-@Composable
-fun AddExpensePreview() {
-    Expense_Tracker_AndroidTheme {
-        AddExpenseScreen(categories = listOf("Food", "Transport", "Shopping"))
-    }
-}
-
 private fun formatDate(dateMillis: Long): String {
     val formatter = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     return formatter.format(dateMillis)
@@ -407,3 +499,80 @@ private fun formatTime(hour: Int, minute: Int): String {
     val formatter = SimpleDateFormat("hh:mm a", Locale.getDefault())
     return formatter.format(calendar.time)
 }
+
+sealed class ConversionResult {
+    data class Success(val amount: String) : ConversionResult()
+    data class Error(val message: String) : ConversionResult()
+}
+
+suspend fun convertToINR(
+    amount: String,
+    currency: String,
+    api: ExchangeRatesService,
+    apiKey: String,
+    context: android.content.Context
+): ConversionResult {
+    val amt = amount.toDoubleOrNull() ?: return ConversionResult.Error("Invalid amount")
+    if (currency == "INR") return ConversionResult.Success("%.2f".format(amt))
+    try {
+        // Construct the URL for logging
+        val url = "https://api.exchangeratesapi.io/v1/latest?access_key=$apiKey"
+        Log.d("CurrencyAPI", "Requesting: $url")
+        println("CurrencyAPI: Requesting $url")
+        // Fetch all rates with base EUR
+        val response = api.getLatestRates(apiKey)
+        if (response.success && response.rates != null) {
+            val ratesMapEUR = response.rates
+            val eurToInr = ratesMapEUR["INR"] ?: return ConversionResult.Error("No EUR to INR rate found")
+            // Convert all rates to INR base
+            val ratesMapINR = ratesMapEUR.mapValues { (_, rate) -> eurToInr / rate }
+            // Save the INR-based rates map to a JSON file for future use
+            val json = com.google.gson.Gson().toJson(ratesMapINR)
+            context.openFileOutput("inr_rates_map.json", android.content.Context.MODE_PRIVATE).use { fos ->
+                fos.write(json.toByteArray())
+            }
+            // Use the map for conversion
+            val rate = ratesMapINR[currency] ?: return ConversionResult.Error("No rate found for $currency")
+            val inrAmount = amt * rate
+            return ConversionResult.Success("%.2f".format(inrAmount))
+        } else if (response.error != null) {
+            val code = response.error.code
+            val info = response.error.info
+            println("Currency API error: code=$code, info=$info")
+            Log.e("CurrencyAPI", "Error code: $code, info: $info")
+            return ConversionResult.Error("API error: ${info ?: code}")
+        } else {
+            return ConversionResult.Error("Conversion failed: Unknown error")
+        }
+    } catch (e: retrofit2.HttpException) {
+        val errorBody = e.response()?.errorBody()?.string()
+        Log.e("CurrencyAPI", "HTTP ${e.code()} error: $errorBody")
+        println("CurrencyAPI: HTTP ${e.code()} error: $errorBody")
+        return ConversionResult.Error("HTTP ${e.code()} error: $errorBody")
+    } catch (e: Exception) {
+        Log.e("CurrencyAPI", "Currency conversion failed. Please check your network or API key. ${e.localizedMessage}")
+        return ConversionResult.Error("Currency conversion failed. Please check your network or API key.")
+    }
+}
+
+//@Preview(showBackground = true)
+//@Composable
+//fun AddExpensePreview() {
+//    // Provide a mock API for preview
+//    val mockApi = object : ExchangeRatesService {
+//        override suspend fun getLatestRates(
+//            apiKey: String,
+//            base: String?
+//        ) = com.example.expense_tracker_android.model.LatestRatesResponse(
+//            success = true,
+//            rates = mapOf("USD" to 80.0, "EUR" to 90.0)
+//        )
+//    }
+//    Expense_Tracker_AndroidTheme {
+//        AddExpenseScreen(
+//            categories = listOf("Food", "Transport", "Shopping"),
+//            api = mockApi,
+//            apiKey = "FAKE_KEY"
+//        )
+//    }
+//}

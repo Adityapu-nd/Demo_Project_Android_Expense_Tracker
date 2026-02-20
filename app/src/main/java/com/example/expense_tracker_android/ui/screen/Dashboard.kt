@@ -1,5 +1,7 @@
 package com.example.expense_tracker_android.ui.screen
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +17,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,8 +26,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalDensity
@@ -33,12 +36,16 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.expense_tracker_android.apikey.API_KEY
 import com.example.expense_tracker_android.model.Expense
 import com.example.expense_tracker_android.model.ExpenseDao
+import com.example.expense_tracker_android.model.LatestRatesResponse
+import com.example.expense_tracker_android.model.saveExchangeRateResponseToFile
 import com.example.expense_tracker_android.viewmodel.DashboardViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onAllExpenses: () -> Unit, onAnalytics: () -> Unit) {
@@ -51,6 +58,8 @@ fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onA
 
     LaunchedEffect(calendarMonth, calendarYear) { viewModel.loadDashboardData() }
 
+    val coroutineScope = rememberCoroutineScope()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -59,7 +68,41 @@ fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onA
             .padding(16.dp)
     ) {
         item {
-            Text("Dashboard", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2B5DF5))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Dashboard", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2B5DF5), modifier = Modifier.weight(1f))
+                val context = LocalContext.current
+                IconButton(onClick = {
+                    coroutineScope.launch {
+                        try {
+                            val response = LatestRatesApi.service.getLatestRates(API_KEY)
+                            // Convert to model.LatestRatesResponse for saving
+                            val modelResponse = LatestRatesResponse(
+                                success = response.success,
+                                timestamp = response.timestamp,
+                                base = response.base,
+                                date = response.date,
+                                rates = response.rates
+                            )
+                            saveExchangeRateResponseToFile(context, modelResponse, "latest_rates_response.json")
+                            if (response.success) {
+                                println("Rates: ${response.rates}")
+                                Log.d("LatestRates", "Rates: ${response.rates}")
+                                Toast.makeText(context, "Rates fetched and saved.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                println("Failed to fetch rates: ${response}")
+                                Log.e("LatestRates", "Failed: ${response}")
+                                Toast.makeText(context, "Failed to fetch rates", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Log.e("LatestRates", "Exception: ${e.localizedMessage}")
+                            Toast.makeText(context, "Exception: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Fetch Rates", tint = Color(0xFF2B5DF5))
+                }
+            }
             Text("Hello.", fontSize = 20.sp, color = Color(0xFFB0B8C1), modifier = Modifier.padding(bottom = 16.dp))
         }
         item {
@@ -275,7 +318,7 @@ fun DashboardScreen(viewModel: DashboardViewModel, onAddExpense: () -> Unit, onA
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDrag = { change, dragAmount ->
-                            change.consumeAllChanges()
+                            change.consume()
                             fabOffsetX += dragAmount.x
                             fabOffsetY += dragAmount.y
                         }
